@@ -1,27 +1,73 @@
 #include "linguini.h"
-#include <time.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <math.h>
+#include <SDL2/SDL.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "external/stb_image.h"
 
-void linguini_createPixarr(PixelArray* canvas, size_t width, size_t height){
+clock_t lastLimitFps = (clock_t)NULL;
+
+void linguini_createPixarr(linguini_PixelArray* canvas, size_t width, size_t height){
 	canvas->width = width;
 	canvas->height = height;
 	canvas->channels = 4; // RGBA by default, can be manually changed
 
 	canvas->pixels = (uint32_t*)malloc(width*height*sizeof(uint32_t));
 	linguini_clearPixarr(canvas, 0x000000FF);
+	canvas->changed = 1;
 }
 
-void linguini_clearPixarr(PixelArray* canvas, uint32_t color){
+void linguini_useSDL(linguini_SDLContext* sdlContext, linguini_PixelArray* canvas, const char* title){
+	sdlContext->window = NULL;
+	sdlContext->renderer = NULL;
+	sdlContext->width = canvas->width;
+	sdlContext->height = canvas->height;
+
+	if(SDL_Init(SDL_INIT_VIDEO) < 0){
+		linguini_log("SDL ERROR", "Failed to initalize SDL with error: %s", SDL_GetError());
+		exit(1);
+	}
+
+	sdlContext->window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, canvas->width, canvas->height, SDL_WINDOW_SHOWN);
+	if(sdlContext->window == NULL){
+		linguini_log("SDL ERROR", "Failed to create SDL_Window with error: %s", SDL_GetError());
+		exit(1);
+	}
+
+	sdlContext->renderer = SDL_CreateRenderer(sdlContext->window, -1, SDL_RENDERER_ACCELERATED);
+	if(sdlContext->renderer == NULL){
+		linguini_log("SDL ERROR", "Failed to create SDL_Renderer with error: %s", SDL_GetError());
+		exit(1);
+	}
+}
+
+void linguini_startClock(void){
+	lastLimitFps = clock();
+}
+
+int linguini_limitFPS(int targetFPS){
+	double targetMS = 1000/targetFPS;
+	lastLimitFps = clock() - lastLimitFps;
+	double delta = ((double)lastLimitFps)/CLOCKS_PER_SEC;
+	delta *= 1000; // convert to millis
+
+	if(delta < targetMS){
+		linguini_delayMillis(targetMS-delta);
+	}
+
+	lastLimitFps = clock();
+}
+
+void linguini_clearPixarr(linguini_PixelArray* canvas, uint32_t color){
 	for(int y = 0; y < canvas->height; y++){
 		for(int x = 0; x < canvas->width; x++){
 			canvas->pixels[y*canvas->width + x] = color;
 		}
 	}
+	canvas->changed = 1;
 }
 
 void linguini_log(const char* tag, const char* message, ...){
@@ -38,7 +84,28 @@ void linguini_log(const char* tag, const char* message, ...){
 	va_end(args);
 }
 
-void linguini_pixarrToPPM(PixelArray* canvas, const char* filepath){
+// https://stackoverflow.com/a/1157217
+int linguini_delayMillis(long msec){
+    struct timespec ts;
+    int res;
+
+    if (msec < 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec % 1000) * 1000000;
+
+    do {
+        res = nanosleep(&ts, &ts);
+    } while (res && errno == EINTR);
+
+    return res;
+}
+
+void linguini_pixarrToPPM(linguini_PixelArray* canvas, const char* filepath){
 	FILE* file = fopen(filepath, "wb");
 	if(file == NULL){
 		printf("Failed to open file %s with error %s\n", filepath, errno);
@@ -64,11 +131,36 @@ void linguini_pixarrToPPM(PixelArray* canvas, const char* filepath){
 	fclose(file);
 }
 
+void linguini_toSDL(linguini_PixelArray* canvas, linguini_SDLContext* sdlContext){
+	if(canvas->changed == 0){ return; }
+	SDL_SetRenderDrawColor(sdlContext->renderer, 0, 0, 0, 0);
+	SDL_RenderClear(sdlContext->renderer);
+	for(int y = 0; y < canvas->height; y++){
+		for(int x = 0; x < canvas->width; x++){
+			uint32_t pixel = canvas->pixels[y*canvas->width + x];
+			SDL_SetRenderDrawColor(sdlContext->renderer, (pixel>>24)&0xFF, (pixel>>16)&0xFF, (pixel>>8)&0xFF, pixel&0xFF);
+			SDL_RenderDrawPoint(sdlContext->renderer, x, y);
+		}
+	}
+	SDL_RenderPresent(sdlContext->renderer);
+	canvas->changed = 0;
+}
+
+int linguini_SDLPollEvents(SDL_Event* e){
+	return SDL_PollEvent(e);
+}
+
+void linguini_closeSDL(linguini_SDLContext* sdlContext){
+	SDL_DestroyRenderer(sdlContext->renderer);
+	SDL_DestroyWindow(sdlContext->window);
+	SDL_Quit();
+}
+
 void linguini_notImplemented(){
 	linguini_log("ERROR", "Attempted to use function that hasn't been implemented, try again later");
 }
 
-void linguini_drawPixel(PixelArray* canvas, int x, int y, uint32_t color){
+void linguini_drawPixel(linguini_PixelArray* canvas, int x, int y, uint32_t color){
 	uint32_t pixel = canvas->pixels[y*canvas->width + x];
 	uint8_t pixelBytes[3] = {
 		(pixel>>24)&0xFF,
@@ -90,9 +182,10 @@ void linguini_drawPixel(PixelArray* canvas, int x, int y, uint32_t color){
 	blendedColor |= (color&0xFF);
 
 	canvas->pixels[y*canvas->width + x] = blendedColor;
+	canvas->changed = 1;
 }
 
-void linguini_drawLine(PixelArray* canvas, int x1, int y1, int x2, int y2, uint32_t color){	
+void linguini_drawLine(linguini_PixelArray* canvas, int x1, int y1, int x2, int y2, uint32_t color){	
 	if(x1 == x2 && x1 >= 0 && x1 < canvas->width){
 		// vertical line
 		int sy = y1 < y2 ? y1 : y2;
@@ -145,7 +238,7 @@ void linguini_drawLine(PixelArray* canvas, int x1, int y1, int x2, int y2, uint3
 	}
 }
 
-void linguini_drawRect(PixelArray* canvas, int x, int y, int w, int h, uint32_t color){
+void linguini_drawRect(linguini_PixelArray* canvas, int x, int y, int w, int h, uint32_t color){
 	for(int dx = x; dx < x+w; dx++){
 		if(dx < 0){ continue; }
 		if(dx >= canvas->width){ break; }
@@ -170,7 +263,7 @@ void linguini_drawRect(PixelArray* canvas, int x, int y, int w, int h, uint32_t 
 		}
 	}
 }
-void linguini_fillRect(PixelArray* canvas, int x, int y, int w, int h, uint32_t color){
+void linguini_fillRect(linguini_PixelArray* canvas, int x, int y, int w, int h, uint32_t color){
 	for(int dy = y; dy < y+h; dy++){
 		if(dy < 0){ continue; }
 		if(dy >= canvas->height){ break; }
@@ -183,7 +276,7 @@ void linguini_fillRect(PixelArray* canvas, int x, int y, int w, int h, uint32_t 
 	}
 }
 
-void linguini_drawCircle(PixelArray* canvas, int cx, int cy, size_t r, uint32_t color){
+void linguini_drawCircle(linguini_PixelArray* canvas, int cx, int cy, size_t r, uint32_t color){
 	for(int y = cy-r; y < cy+r; y++){
 		if(y < 0){ continue; }
 		if(y >= canvas->height){ break; }
@@ -197,7 +290,7 @@ void linguini_drawCircle(PixelArray* canvas, int cx, int cy, size_t r, uint32_t 
 		}
 	}
 }
-void linguini_fillCircle(PixelArray* canvas, int cx, int cy, size_t r, uint32_t color){
+void linguini_fillCircle(linguini_PixelArray* canvas, int cx, int cy, size_t r, uint32_t color){
 	for(int y = cy-r; y < cy+r; y++){
 		if(y < 0){ continue; }
 		if(y >= canvas->height){ break; }
@@ -212,7 +305,11 @@ void linguini_fillCircle(PixelArray* canvas, int cx, int cy, size_t r, uint32_t 
 	}
 }
 
-void linguini_drawTriangle(PixelArray* canvas, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color){
+void linguini_drawEllipse(linguini_PixelArray* canvas, int cx, int cy, size_t a, size_t b, uint32_t color){
+	linguini_notImplemented();
+}
+
+void linguini_drawTriangle(linguini_PixelArray* canvas, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color){
 	linguini_drawLine(canvas, x1, y1, x2, y2, color);
 	linguini_drawLine(canvas, x2, x2, x3, y3, color);
 	linguini_drawLine(canvas, x3, y3, x1, y1, color);
@@ -222,7 +319,7 @@ int edgeFunction(int x1, int y1, int x2, int y2, int x3, int y3){
 	return (x2-x1)*(y3-y1) - (y2-y1)*(x3-x1);
 }
 
-void linguini_fillTriangle(PixelArray* canvas, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color){
+void linguini_fillTriangle(linguini_PixelArray* canvas, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color){
 	if(edgeFunction(x1, y1, x2, y2, x3, y3) < 0){
 		int tx = x1, ty = x1;
 		x1 = x3;
@@ -253,7 +350,7 @@ void linguini_fillTriangle(PixelArray* canvas, int x1, int y1, int x2, int y2, i
 	}
 }
 
-void linguini_loadImage(PixelArray* image, const char* filepath){
+void linguini_loadImage(linguini_PixelArray* image, const char* filepath){
 	int width, height, n;
 	uint8_t* data = stbi_load(filepath, &width, &height, &n, 0);
 	linguini_createPixarr(image, width, height);
@@ -287,7 +384,7 @@ void linguini_loadImage(PixelArray* image, const char* filepath){
 	stbi_image_free(data);
 }
 
-void linguini_drawImage(PixelArray* canvas, PixelArray* image, int x, int y){
+void linguini_drawImage(linguini_PixelArray* canvas, linguini_PixelArray* image, int x, int y){
 	if(image->channels > canvas->channels || image->channels < 3){
 		linguini_log("ERROR", "Attmpted to draw image with %d channels, onto canvas with %d channels", image->channels, canvas->channels);
 		return;
@@ -301,4 +398,21 @@ void linguini_drawImage(PixelArray* canvas, PixelArray* image, int x, int y){
 			linguini_drawPixel(canvas, dx, dy, image->pixels[(dy-y)*image->width + (dx-x)]);
 		}
 	}
+}
+void linguini_drawRotatedImage(linguini_PixelArray* canvas, linguini_PixelArray* image, int x, int y, float theta){
+	int newX, newY;
+	for(int dy = 0; dy < image->height; dy++){
+		for(int dx = 0; dx < image->width; dx++){
+			// add (x,y) to shift back to the original center
+			newX = dx*cosf(theta) - dy*sinf(theta);
+			newX += x;
+			newY = dx*sinf(theta) - dy*cosf(theta);
+			newY += y;
 
+			if(newY < 0 || newX < 0){ continue; }
+			if(newY >= canvas->height || newX >= canvas->width){ continue; }
+
+			linguini_drawPixel(canvas, x, y, image->pixels[dy*image->width + dx]);
+		}
+	}
+}
