@@ -3,7 +3,14 @@
 #include <stddef.h>
 #include <time.h>
 #include <stdint.h>
+
+#ifdef USE_SDL
 #include <SDL2/SDL.h>
+#endif
+
+#ifdef USE_X11
+#include <X11/Xlib.h>
+#endif
 
 // -- STRUCTS/VARS --
 
@@ -16,29 +23,34 @@ typedef struct {
 	int changed;
 } linguini_PixelArray;
 
+#ifdef USE_SDL
 typedef struct {
 	SDL_Window* window;
 	SDL_Renderer* renderer;
 	SDL_Texture* windowTexture;
 	size_t width;
 	size_t height;
+	int isOpen;
 } linguini_SDLContext;
+#endif
+
+#ifdef USE_X11
+typedef struct {
+	Display* display;
+	Window window;
+	GC gc;
+	int isOpen;
+} linguini_X11Context;
+#endif
 
 extern struct timespec lastLimitFPS;
 
 // -- Management --
 void linguini_createPixarr(linguini_PixelArray* canvas, size_t width, size_t height);
 void linguini_loadImage(linguini_PixelArray* image, const char* filepath);
-void linguini_useSDL(linguini_SDLContext* sdlContext, linguini_PixelArray* canvas, const char* title);
 
 void linguini_startClock(void);
 int linguini_limitFPS(int targetFPS);
-
-// -- SDL --
-int linguini_SDLPollEvents(SDL_Event* e);
-void linguini_closeSDL(linguini_SDLContext* sdlContext);
-
-void linguini_toSDL(linguini_PixelArray* canvas, linguini_SDLContext* sdlContext);
 
 // -- GRAPHICS --
 void linguini_clearPixarr(linguini_PixelArray* canvas, uint32_t color);
@@ -68,5 +80,24 @@ int linguini_delayMillis(long msec);
 
 void linguini_log(const char* tag, const char* message, ...);
 void linguini_notImplemented();
+
+#ifdef USE_SDL
+void linguini_useSDL(linguini_SDLContext* sdlContext, linguini_PixelArray* canvas, const char* title);
+void linguini_closeSDL(linguini_SDLContext* sdlContext);
+
+int linguini_SDLPollEvents(SDL_Event* e);
+
+void linguini_toSDL(linguini_PixelArray* canvas, linguini_SDLContext* sdlContext);
+#endif // USE_SDL
+
+#ifdef USE_X11
+void linguini_useX11(linguini_X11Context* x11Context, linguini_PixelArray* canvas, const char* title);
+void linguini_closeX11(linguini_X11Context* x11Context);
+
+int linguini_X11NextEvent(XEvent* e, linguini_X11Context* x11Context);
+
+void linguini_toX11(linguini_PixelArray* canvas, linguini_X11Context* x11Context);
+
+#endif // USE_X11
 
 #endif //LINGUINI_H
