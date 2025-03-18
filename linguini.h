@@ -12,6 +12,10 @@
 #include <X11/Xlib.h>
 #endif
 
+#ifdef USE_WAYLAND
+#include <wayland-client.h>
+#endif
+
 // -- STRUCTS/VARS --
 
 // channels is currently only utilised for image processing
@@ -41,6 +45,28 @@ typedef struct {
 	GC gc;
 	int isOpen;
 } linguini_X11Context;
+#endif
+
+#ifdef USE_WAYLAND
+typedef struct {
+	struct wl_compositor* compositor;
+	struct wl_shm* shm;
+	struct wl_shell* shell;
+
+	struct wl_display* display;
+	struct wl_registry* registry;
+	struct wl_registry_listener registryListener;
+
+	struct wl_surface* surface;
+	struct wl_shell_surface* shellSurface;
+
+	unsigned char* data;
+
+	struct wl_shm_pool* shmPool;
+	struct wl_buffer* buffer;
+
+	int isOpen;
+} linguini_waylandContext;
 #endif
 
 extern struct timespec lastLimitFPS;
@@ -99,5 +125,15 @@ int linguini_X11NextEvent(XEvent* e, linguini_X11Context* x11Context);
 void linguini_toX11(linguini_PixelArray* canvas, linguini_X11Context* x11Context);
 
 #endif // USE_X11
+
+#ifdef USE_WAYLAND
+void linguini_useWayland(linguini_waylandContext* waylandContext, linguini_PixelArray* canvas, const char* title);
+
+void linguini_toWayland(linguini_PixelArray* canvas, linguini_waylandContext* waylandContext);
+
+void linguini_internal_registryGlobalHandler(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version);
+void linguini_internal_registryGlobalRemoveHandler(void* data, struct wl_registry* registry, uint32_t name);
+
+#endif // USE_WAYLAND
 
 #endif //LINGUINI_H

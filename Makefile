@@ -13,6 +13,11 @@ ifdef USE_X11
 	SRCS += linguini_X11.c
 endif
 
+ifdef USE_WAYLAND
+	CFLAGS += -lwayland-client -DUSE_WAYLAND
+	SRCS += linguini_Wayland.c
+endif
+
 debug:
 	$(CC) $(SRCS) $(CFLAGS) -g
 release:
