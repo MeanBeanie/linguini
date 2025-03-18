@@ -4,14 +4,16 @@ int main(void){
 	linguini_PixelArray canvas;
 	linguini_createPixarr(&canvas, 800, 450);
 
-	linguini_clearPixarr(&canvas, 0x202020FF);
-	linguini_fillRect(&canvas, 10, 10, 100, 100, 0xFF202099);
-	linguini_fillRect(&canvas, 90, 90, 100, 100, 0x2020FF99);
-
 	linguini_SDLContext sdlContext;
 	linguini_useSDL(&sdlContext, &canvas, "Linguini SDL Test");
 
 	SDL_Event e;
+
+	int dx = 4;
+	int dy = 4;
+
+	int x = 100;
+	int y = 100;
 
 	linguini_startClock();
 	int running = 1;
@@ -20,6 +22,24 @@ int main(void){
 			if(e.type == SDL_QUIT){
 				running = 0;
 			}
+		}
+
+		linguini_clearPixarr(&canvas, 0x202020FF);
+
+		linguini_fillRect(&canvas, x, y, 10, 10, 0x20FF20FF);
+
+		if(x+dx >= 0 && x+10+dx < canvas.width){
+			x += dx;
+		}
+		else{
+			dx = -dx;
+		}
+
+		if(y+dy >= 0 && y+10+dy < canvas.height){
+			y += dy;
+		}
+		else{
+			dy = -dy;
 		}
 
 		linguini_toSDL(&canvas, &sdlContext);

@@ -8,7 +8,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "external/stb_image.h"
 
-clock_t lastLimitFps = (clock_t)NULL;
+struct timespec lastLimitFps;
 
 void linguini_createPixarr(linguini_PixelArray* canvas, size_t width, size_t height){
 	canvas->width = width;
@@ -42,23 +42,28 @@ void linguini_useSDL(linguini_SDLContext* sdlContext, linguini_PixelArray* canva
 		linguini_log("SDL ERROR", "Failed to create SDL_Renderer with error: %s", SDL_GetError());
 		exit(1);
 	}
+
+	sdlContext->windowTexture = SDL_CreateTexture(sdlContext->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, canvas->width, canvas->height);
 }
 
 void linguini_startClock(void){
-	lastLimitFps = clock();
+	clock_gettime(CLOCK_MONOTONIC_RAW, &lastLimitFps);
 }
 
 int linguini_limitFPS(int targetFPS){
-	double targetMS = 1000/targetFPS;
-	lastLimitFps = clock() - lastLimitFps;
-	double delta = ((double)lastLimitFps)/CLOCKS_PER_SEC;
-	delta *= 1000; // convert to millis
+	int targetMS = 1000/targetFPS;
+	struct timespec current;
+	clock_gettime(CLOCK_MONOTONIC_RAW, &current);
+//	uint64_t delta_ms = (current.tv_sec - lastLimitFps.tv_sec) * 1000000 + (current.tv_nsec - lastLimitFps.tv_nsec) / 1000;
+	double delta_ms = (current.tv_sec - lastLimitFps.tv_sec) * 1000 + (current.tv_nsec - lastLimitFps.tv_nsec) / 1000000;
 
-	if(delta < targetMS){
-		linguini_delayMillis(targetMS-delta);
+	if(delta_ms < targetMS){
+		linguini_delayMillis(targetMS-delta_ms);
 	}
-
-	lastLimitFps = clock();
+	else{
+		linguini_log("FRAME RATE WARNING", "Frame target is %dms but frame took %.2fms\n", targetMS, delta_ms);
+	}
+	linguini_startClock();
 }
 
 void linguini_clearPixarr(linguini_PixelArray* canvas, uint32_t color){
@@ -133,15 +138,9 @@ void linguini_pixarrToPPM(linguini_PixelArray* canvas, const char* filepath){
 
 void linguini_toSDL(linguini_PixelArray* canvas, linguini_SDLContext* sdlContext){
 	if(canvas->changed == 0){ return; }
-	SDL_SetRenderDrawColor(sdlContext->renderer, 0, 0, 0, 0);
+	SDL_UpdateTexture(sdlContext->windowTexture, NULL, canvas->pixels, canvas->width * sizeof(uint32_t));
 	SDL_RenderClear(sdlContext->renderer);
-	for(int y = 0; y < canvas->height; y++){
-		for(int x = 0; x < canvas->width; x++){
-			uint32_t pixel = canvas->pixels[y*canvas->width + x];
-			SDL_SetRenderDrawColor(sdlContext->renderer, (pixel>>24)&0xFF, (pixel>>16)&0xFF, (pixel>>8)&0xFF, pixel&0xFF);
-			SDL_RenderDrawPoint(sdlContext->renderer, x, y);
-		}
-	}
+	SDL_RenderCopy(sdlContext->renderer, sdlContext->windowTexture, NULL, NULL);
 	SDL_RenderPresent(sdlContext->renderer);
 	canvas->changed = 0;
 }
@@ -151,6 +150,7 @@ int linguini_SDLPollEvents(SDL_Event* e){
 }
 
 void linguini_closeSDL(linguini_SDLContext* sdlContext){
+	SDL_DestroyTexture(sdlContext->windowTexture);
 	SDL_DestroyRenderer(sdlContext->renderer);
 	SDL_DestroyWindow(sdlContext->window);
 	SDL_Quit();

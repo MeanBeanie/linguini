@@ -19,11 +19,12 @@ typedef struct {
 typedef struct {
 	SDL_Window* window;
 	SDL_Renderer* renderer;
+	SDL_Texture* windowTexture;
 	size_t width;
 	size_t height;
 } linguini_SDLContext;
 
-extern clock_t lastLimitFPS;
+extern struct timespec lastLimitFPS;
 
 // -- Management --
 void linguini_createPixarr(linguini_PixelArray* canvas, size_t width, size_t height);
