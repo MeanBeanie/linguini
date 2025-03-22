@@ -14,6 +14,7 @@
 
 #ifdef USE_WAYLAND
 #include <wayland-client.h>
+#include "xdg-shell-client-protocol.h"
 #endif
 
 // -- STRUCTS/VARS --
@@ -51,19 +52,20 @@ typedef struct {
 typedef struct {
 	struct wl_compositor* compositor;
 	struct wl_shm* shm;
-	struct wl_shell* shell;
+
+	struct xdg_wm_base* wmBase;
 
 	struct wl_display* display;
 	struct wl_registry* registry;
 	struct wl_registry_listener registryListener;
 
 	struct wl_surface* surface;
-	struct wl_shell_surface* shellSurface;
+	struct xdg_surface* xdgSurface;
+	struct xdg_toplevel* toplevel;
 
 	unsigned char* data;
 
-	struct wl_shm_pool* shmPool;
-	struct wl_buffer* buffer;
+	linguini_PixelArray* pixarr;
 
 	int isOpen;
 } linguini_waylandContext;
@@ -128,11 +130,11 @@ void linguini_toX11(linguini_PixelArray* canvas, linguini_X11Context* x11Context
 
 #ifdef USE_WAYLAND
 void linguini_useWayland(linguini_waylandContext* waylandContext, linguini_PixelArray* canvas, const char* title);
+void linguini_closeWayland(linguini_waylandContext* waylandContext);
 
-void linguini_toWayland(linguini_PixelArray* canvas, linguini_waylandContext* waylandContext);
+int linguini_waylandDisplayDispatch(linguini_waylandContext* waylandContext);
 
-void linguini_internal_registryGlobalHandler(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version);
-void linguini_internal_registryGlobalRemoveHandler(void* data, struct wl_registry* registry, uint32_t name);
+static struct wl_buffer* linguini_toWayland(linguini_PixelArray* canvas, linguini_waylandContext* waylandContext);
 
 #endif // USE_WAYLAND
 

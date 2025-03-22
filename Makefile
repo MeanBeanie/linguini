@@ -14,8 +14,8 @@ ifdef USE_X11
 endif
 
 ifdef USE_WAYLAND
-	CFLAGS += -lwayland-client -DUSE_WAYLAND
-	SRCS += linguini_Wayland.c
+	CFLAGS += -lwayland-client -DUSE_WAYLAND -lrt
+	SRCS += xdg-shell-protocol.c linguini_Wayland.c
 endif
 
 debug:
