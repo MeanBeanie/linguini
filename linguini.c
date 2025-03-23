@@ -192,42 +192,48 @@ void linguini_drawLine(linguini_PixelArray* canvas, int x1, int y1, int x2, int 
 	}
 }
 
-void linguini_drawRect(linguini_PixelArray* canvas, int x, int y, int w, int h, uint32_t color){
-	for(int dx = x; dx < x+w; dx++){
+void linguini_drawRect(linguini_PixelArray* canvas, linguini_Rect rect, uint32_t color){
+	for(int dx = rect.x; dx < rect.x+rect.w; dx++){
 		if(dx < 0){ continue; }
 		if(dx >= canvas->width){ break; }
 
-		if(y >= 0 && y < canvas->height){
-			linguini_drawPixel(canvas, dx, y, color);
+		if(rect.y >= 0 && rect.y < canvas->height){
+			linguini_drawPixel(canvas, dx, rect.y, color);
 		}
-		if(y+h >= 0 && y+h < canvas->height){
-			linguini_drawPixel(canvas, dx, y+h, color);
+		if(rect.y+rect.h >= 0 && rect.y+rect.h < canvas->height){
+			linguini_drawPixel(canvas, dx, rect.y+rect.h, color);
 		}
 	}
 
-	for(int dy = y; dy < y+h; dy++){
+	for(int dy = rect.y; dy < rect.y+rect.h; dy++){
 		if(dy < 0){ continue; }
 		if(dy >= canvas->height){ break; }
 
-		if(x >= 0 && x < canvas->width){
-			linguini_drawPixel(canvas, x, dy, color);
+		if(rect.x >= 0 && rect.x < canvas->width){
+			linguini_drawPixel(canvas, rect.x, dy, color);
 		}
-		if(x+w >= 0 && x+w < canvas->width){
-			linguini_drawPixel(canvas, x+w, dy, color);
+		if(rect.x+rect.w >= 0 && rect.x+rect.w < canvas->width){
+			linguini_drawPixel(canvas, rect.x+rect.w, dy, color);
 		}
 	}
 }
-void linguini_fillRect(linguini_PixelArray* canvas, int x, int y, int w, int h, uint32_t color){
-	for(int dy = y; dy < y+h; dy++){
+void linguini_fillRect(linguini_PixelArray* canvas, linguini_Rect rect, uint32_t color){
+	for(int dy = rect.y; dy < rect.y+rect.h; dy++){
 		if(dy < 0){ continue; }
 		if(dy >= canvas->height){ break; }
-		for(int dx = x; dx < x+w; dx++){
+		for(int dx = rect.x; dx < rect.x+rect.w; dx++){
 			if(dx < 0){ continue; }
 			if(dx >= canvas->width){ break; }
 
 			linguini_drawPixel(canvas, dx, dy, color);
 		}
 	}
+}
+int linguini_pointInRect(linguini_Rect rect, int x, int y){
+	return x >= rect.x && x <= rect.x+rect.w && y >= rect.y && y <= rect.y+rect.h;
+}
+int linguini_rectInRect(linguini_Rect rect1, linguini_Rect rect2){
+	return rect1.x < rect2.x+rect2.w && rect2.x < rect1.x+rect1.w && rect1.y < rect2.y+rect2.h && rect2.y < rect1.y+rect1.h;
 }
 
 void linguini_drawCircle(linguini_PixelArray* canvas, int cx, int cy, size_t r, uint32_t color){
@@ -258,9 +264,9 @@ void linguini_fillCircle(linguini_PixelArray* canvas, int cx, int cy, size_t r, 
 		}
 	}
 }
-
-void linguini_drawEllipse(linguini_PixelArray* canvas, int cx, int cy, size_t a, size_t b, uint32_t color){
-	linguini_notImplemented();
+int linguini_pointInCircle(int cx, int cy, size_t r, int x, int y){
+	int dist = (cx-x)*(cx-x) + (cy-y)*(cy-y);
+	return dist <= r*r;
 }
 
 void linguini_drawTriangle(linguini_PixelArray* canvas, int x1, int y1, int x2, int y2, int x3, int y3, uint32_t color){
