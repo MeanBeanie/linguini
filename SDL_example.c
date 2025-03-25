@@ -8,7 +8,7 @@ int main(void){
 	linguini_useSDL(&sdlContext, &canvas, "Linguini SDL Test");
 
 	linguini_freetypeContext freetypeContext;
-	linguini_useFreetype(&freetypeContext, "./DepartureMonoNerdFont-Regular.otf", 32);
+	linguini_useFreetype(&freetypeContext, "/home/shucai/.local/share/fonts/DepartureMonoNerdFont-Regular.otf", 32);
 
 	SDL_Event e;
 

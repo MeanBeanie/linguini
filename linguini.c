@@ -35,7 +35,7 @@ int linguini_limitFPS(int targetFPS){
 		linguini_delayMillis(targetMS-delta_ms);
 	}
 	else{
-		linguini_log("FRAME RATE WARNING", "Frame target is %dms but frame took %.2fms\n", targetMS, delta_ms);
+		linguini_log("Frame Rate WARNING", "Frame target is %dms but frame took %.2fms\n", targetMS, delta_ms);
 	}
 	linguini_startClock();
 }
@@ -111,7 +111,7 @@ void linguini_pixarrToPPM(linguini_PixelArray* canvas, const char* filepath){
 }
 
 void linguini_notImplemented(){
-	linguini_log("ERROR", "Attempted to use function that hasn't been implemented, try again later");
+	linguini_log("notImplemented ERROR", "Attempted to use function that hasn't been implemented, try again later");
 }
 
 void linguini_drawPixel(linguini_PixelArray* canvas, int x, int y, uint32_t color){
@@ -346,7 +346,7 @@ void linguini_loadImage(linguini_PixelArray* image, const char* filepath){
 
 void linguini_drawImage(linguini_PixelArray* canvas, linguini_PixelArray* image, int x, int y){
 	if(image->channels > canvas->channels || image->channels < 3){
-		linguini_log("ERROR", "Attmpted to draw image with %d channels, onto canvas with %d channels", image->channels, canvas->channels);
+		linguini_log("drawImage ERROR", "Attmpted to draw image with %d channels, onto canvas with %d channels", image->channels, canvas->channels);
 		return;
 	}
 	for(int dy = y; dy < y+image->height; dy++){

@@ -16,7 +16,7 @@
 
 #ifdef USE_WAYLAND
 #include <wayland-client.h>
-#include "xdg-shell-client-protocol.h"
+#include "libReqs/xdg-shell-client-protocol.h"
 #endif
 
 // -- STRUCTS/VARS --
