@@ -1,3 +1,5 @@
+# **ABANDONED** (its really very poorly coded, moved to [penne](https://www.github.com/MeanBeanie/penne)
+
 # linguini
 
 Inspired by tsoding's olive-c, this is a simple graphics/rendering system
